@@ -1,5 +1,7 @@
 import { useRef, useEffect } from "react";
-import { useFetcher } from "react-router";
+import { useFetcher, useRouteLoaderData } from "react-router";
+import type { loader as layoutLoader } from "./layout.app";
+import { NotificationSettingsCard } from "~/components/inbox-prototype/notification-settings"; // PROTOTYPE
 import { toast } from "sonner";
 import { z } from "zod";
 import type { Route } from "./+types/settings";
@@ -103,6 +105,7 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
     (refundRequest) => refundRequest.status === RefundStatus.Open
   ).length;
   const fetcher = useFetcher();
+  const layout = useRouteLoaderData<typeof layoutLoader>("routes/layout.app"); // PROTOTYPE
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -129,7 +132,7 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Settings</h1>
         <p className="mt-1 text-muted-foreground">
-          Update your profile details
+          Update your profile details and Notifications
         </p>
       </div>
 
@@ -187,6 +190,12 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
           </fetcher.Form>
         </CardContent>
       </Card>
+
+      {/* PROTOTYPE */}
+      <NotificationSettingsCard
+        isInstructor={user.role === UserRole.Instructor}
+        isTeamAdmin={layout?.isTeamAdmin ?? false}
+      />
 
       {refundRequests.length > 0 && (
         <Card className="mt-8 max-w-md">
