@@ -53,7 +53,7 @@ export interface KnockFeedMeta {
   unseen_count: number;
 }
 
-// The five v1 events (decision ticket #3), as Knock workflow keys.
+// The five v1 Notification Triggers (decision ticket #3), as Knock workflow keys.
 export type WorkflowKey =
   | "lesson-reply"
   | "lesson-question"
@@ -299,11 +299,25 @@ const incoming: (() => KnockFeedItem)[] = [
 export type BadgeCounts = "unseen" | "unread";
 export type GroupBy = "person" | "course";
 
+// Triggers whose Announcements a person can switch off (decision ticket #7).
+// Refund Request Triggers are always announced.
+export type SwitchableTrigger = "lesson-reply" | "lesson-question" | "seat-claimed";
+export const SWITCHABLE_TRIGGERS: { key: SwitchableTrigger; name: string }[] = [
+  { key: "lesson-reply", name: "Reply to your Lesson Question" },
+  { key: "lesson-question", name: "New Lesson Question on your course" },
+  { key: "seat-claimed", name: "Seat claimed" },
+];
+
 interface FeedContextValue {
   items: KnockFeedItem[]; // not archived, newest first
   archived: KnockFeedItem[];
   meta: KnockFeedMeta;
   badgeCounts: BadgeCounts;
+  /** What the badge and tab count show: unread (or unseen) AND announced. */
+  badgeCount: number;
+  announce: Record<SwitchableTrigger, boolean>;
+  setAnnounce: (t: SwitchableTrigger, on: boolean) => void;
+  isAnnounced: (i: KnockFeedItem) => boolean;
   setBadgeCounts: (b: BadgeCounts) => void;
   markAsSeen: (ids?: string[]) => void;
   markAsRead: (id: string) => void;
@@ -372,6 +386,14 @@ export function FakeFeedProvider({ children }: { children: React.ReactNode }) {
   const [tabCountOn, setTabCountOn] = useState(true);
   const [lastEvent, setLastEvent] = useState("—");
   const [groupBy, setGroupBy] = useState<GroupBy>("person");
+  // "Seat claimed" starts switched off so a silent Notification is in view.
+  const [announce, setAnnounceAll] = useState<Record<SwitchableTrigger, boolean>>({
+    "lesson-reply": true,
+    "lesson-question": true,
+    "seat-claimed": false,
+  });
+  const isAnnounced = (i: KnockFeedItem) =>
+    announce[i.source.key as SwitchableTrigger] ?? true;
   const visible = useRef(new Set<string>());
   const navigate = useNavigate();
   const fireIdx = useRef(0);
@@ -398,6 +420,12 @@ export function FakeFeedProvider({ children }: { children: React.ReactNode }) {
     archived,
     meta,
     badgeCounts,
+    badgeCount: items.filter(
+      (i) => isAnnounced(i) && !(badgeCounts === "unseen" ? i.seen_at : i.read_at)
+    ).length,
+    announce,
+    setAnnounce: (t, on) => setAnnounceAll((a) => ({ ...a, [t]: on })),
+    isAnnounced,
     setBadgeCounts,
     markAsSeen: (ids) =>
       patch(
@@ -434,7 +462,7 @@ export function FakeFeedProvider({ children }: { children: React.ReactNode }) {
       const n = make();
       setAll((xs) => [n, ...xs]);
       setLastEvent(`items.received (${n.source.key})`);
-      if (toastsOn && visible.current.size === 0) {
+      if (toastsOn && isAnnounced(n) && visible.current.size === 0) {
         toast(<Md text={body(n)} />, {
           duration: 5000,
           action: {
@@ -463,7 +491,7 @@ export function FakeFeedProvider({ children }: { children: React.ReactNode }) {
   // Tab title: "(3) Lesson — Cadence". Route meta rewrites the title on
   // navigation, so re-apply after every location change.
   const location = useLocation();
-  const count = badgeCounts === "unseen" ? meta.unseen_count : meta.unread_count;
+  const count = value.badgeCount;
   useEffect(() => {
     const base = document.title.replace(/^\(\d+\+?\)\s/, "");
     document.title =

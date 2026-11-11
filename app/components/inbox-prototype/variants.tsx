@@ -4,7 +4,7 @@
 // `?variant=A|B|C` (floating bar, bottom centre). They disagree on structure:
 //   A  Flat feed       — one chronological list; opening the panel clears the badge
 //   B  Read to clear   — badge counts unread; rich previews; list + detail page
-//   C  Triage          — tabs by category, event icons, "Done" archives (inbox zero)
+//   C  Grouped         — by person or by course, event icons, badge counts unread
 
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -12,6 +12,7 @@ import {
   Archive,
   ArchiveRestore,
   Bell,
+  BellOff,
   BookOpen,
   Check,
   CheckCheck,
@@ -26,6 +27,7 @@ import { UserAvatar } from "~/components/user-avatar";
 import { PrototypeSwitcher } from "~/components/prototype-switcher";
 import {
   Md,
+  SWITCHABLE_TRIGGERS,
   actionUrl,
   badgeLabel,
   body,
@@ -78,8 +80,7 @@ export function InboxBell() {
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
 
-  const n =
-    feed.badgeCounts === "unseen" ? feed.meta.unseen_count : feed.meta.unread_count;
+  const n = feed.badgeCount;
 
   // A and C: an open panel marks everything seen, clearing the badge.
   useEffect(() => {
@@ -620,6 +621,7 @@ function ReadToggle({ i }: { i: KnockFeedItem }) {
 }
 
 function RowC({ i, onOpen, compact }: { i: KnockFeedItem; onOpen: () => void; compact?: boolean }) {
+  const feed = useFakeFeed();
   return (
     <div className={cn("group flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted", !i.read_at && "bg-primary/5")}>
       <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-md", EVENT_TINT[i.source.key])}>
@@ -633,6 +635,11 @@ function RowC({ i, onOpen, compact }: { i: KnockFeedItem; onOpen: () => void; co
           <div className="truncate text-xs text-muted-foreground">“{String(i.data.excerpt)}”</div>
         )}
       </button>
+      {!feed.isAnnounced(i) && (
+        <span title="Announcements are off for this Notification Trigger (Settings → Notifications)">
+          <BellOff className="size-3.5 shrink-0 text-muted-foreground" />
+        </span>
+      )}
       <span className="shrink-0 text-xs text-muted-foreground">{relTime(i.inserted_at)}</span>
       <ReadToggle i={i} />
     </div>
@@ -830,7 +837,7 @@ export function InboxPrototypeBar() {
             checked={feed.toastsOn}
             onChange={(e) => feed.setToastsOn(e.target.checked)}
           />
-          toasts
+          Show toasts
         </label>
         <label className="flex items-center gap-1">
           <input
@@ -838,11 +845,25 @@ export function InboxPrototypeBar() {
             checked={feed.tabCountOn}
             onChange={(e) => feed.setTabCountOn(e.target.checked)}
           />
-          tab count
+          Show count in tab title
         </label>
       </div>
+      <div className="flex items-center gap-3 text-xs">
+        <span className="text-white/60">Announce:</span>
+        {SWITCHABLE_TRIGGERS.map((t) => (
+          <label key={t.key} className="flex items-center gap-1">
+            <input
+              type="checkbox"
+              checked={feed.announce[t.key]}
+              onChange={(e) => feed.setAnnounce(t.key, e.target.checked)}
+            />
+            {t.name}
+          </label>
+        ))}
+      </div>
       <div className="font-mono text-[11px] text-white/70">
-        badge counts <b className="text-white">{feed.badgeCounts}</b> · unseen{" "}
+        badge <b className="text-white">{feed.badgeCount}</b> ({feed.badgeCounts}{" "}
+        &amp; announced) · unseen{" "}
         {feed.meta.unseen_count} · unread {feed.meta.unread_count} · archived{" "}
         {feed.archived.length} · last: {feed.lastEvent}
       </div>
