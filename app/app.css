@@ -8,6 +8,10 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  /* Instructor badge: light-mode chart-2 teal, fixed across themes. L=0.6
+     sits midway between the light (1.0) and dark (0.145) backgrounds, so it
+     carries about the same contrast on both. */
+  --color-instructor: oklch(0.6 0.118 184.704);
 }
 
 

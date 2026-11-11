@@ -12,6 +12,7 @@ import {
   Archive,
   ArchiveRestore,
   Bell,
+  BookOpen,
   Check,
   CheckCheck,
   Circle,
@@ -24,7 +25,6 @@ import { cn } from "~/lib/utils";
 import { UserAvatar } from "~/components/user-avatar";
 import { PrototypeSwitcher } from "~/components/prototype-switcher";
 import {
-  CATEGORY_LABEL,
   Md,
   actionUrl,
   badgeLabel,
@@ -32,7 +32,7 @@ import {
   relTime,
   useFakeFeed,
   type BadgeCounts,
-  type Category,
+  type GroupBy,
   type KnockFeedItem,
   type WorkflowKey,
 } from "./fake-feed";
@@ -40,7 +40,7 @@ import {
 export const VARIANTS = {
   A: { name: "Flat feed", badge: "unseen" },
   B: { name: "Read to clear", badge: "unread" },
-  C: { name: "Triage by category", badge: "unseen" },
+  C: { name: "Grouped by person or course", badge: "unread" },
 } as const satisfies Record<string, { name: string; badge: BadgeCounts }>;
 export type VariantKey = keyof typeof VARIANTS;
 
@@ -174,7 +174,7 @@ function ActorAvatar({ i, size = "size-8" }: { i: KnockFeedItem; size?: string }
 function InstructorBadge({ i }: { i: KnockFeedItem }) {
   if (!i.data.actor_is_instructor) return null;
   return (
-    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+    <span className="rounded-full bg-instructor/15 px-2 py-0.5 text-xs font-medium text-instructor">
       Instructor
     </span>
   );
@@ -562,7 +562,9 @@ function PageB() {
   );
 }
 
-// ---- Variant C: Triage by category --------------------------------------
+// ---- Variant C: Grouped by person or course -----------------------------
+// One Notification per event (no vendor batching); the grouping toggle does
+// the "3 questions from…" job instead. Badge counts unread; nothing archives.
 
 const EVENT_ICON: Record<WorkflowKey, React.ReactNode> = {
   "lesson-reply": <MessageSquareReply className="size-4" />,
@@ -580,15 +582,51 @@ const EVENT_TINT: Record<WorkflowKey, string> = {
   "seat-claimed": "bg-violet-500/15 text-violet-600 dark:text-violet-400",
 };
 
-function RowC({ i, onOpen, compact }: { i: KnockFeedItem; onOpen: () => void; compact?: boolean }) {
+interface Group {
+  key: string;
+  items: KnockFeedItem[];
+}
+
+/** Items arrive newest first, so first-seen order puts the group with the
+ *  most recent Notification on top. */
+function groupItems(items: KnockFeedItem[], by: GroupBy): Group[] {
+  const groups = new Map<string, KnockFeedItem[]>();
+  for (const i of items) {
+    const k = by === "person" ? i.actors[0].id : String(i.data.course);
+    groups.set(k, [...(groups.get(k) ?? []), i]);
+  }
+  return [...groups].map(([key, items]) => ({ key, items }));
+}
+
+function ReadToggle({ i }: { i: KnockFeedItem }) {
   const feed = useFakeFeed();
+  return i.read_at ? (
+    <button
+      onClick={() => feed.markAsUnread(i.id)}
+      title="Mark as unread"
+      className="shrink-0 rounded p-1 text-muted-foreground opacity-0 hover:bg-background hover:text-foreground group-hover:opacity-100"
+    >
+      <Circle className="size-3.5" />
+    </button>
+  ) : (
+    <button
+      onClick={() => feed.markAsRead(i.id)}
+      title="Mark as read"
+      className="flex shrink-0 items-center gap-1 rounded border bg-background px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+    >
+      <Check className="size-3" /> Mark read
+    </button>
+  );
+}
+
+function RowC({ i, onOpen, compact }: { i: KnockFeedItem; onOpen: () => void; compact?: boolean }) {
   return (
-    <div className="group flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted">
+    <div className={cn("group flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted", !i.read_at && "bg-primary/5")}>
       <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-md", EVENT_TINT[i.source.key])}>
         {EVENT_ICON[i.source.key]}
       </div>
       <button onClick={onOpen} className="min-w-0 flex-1 text-left">
-        <div className={cn("truncate", !i.read_at && "font-medium")}>
+        <div className={cn("truncate", i.read_at ? "text-muted-foreground" : "font-medium")}>
           <Md text={body(i)} />
         </div>
         {!compact && i.data.excerpt && (
@@ -596,73 +634,94 @@ function RowC({ i, onOpen, compact }: { i: KnockFeedItem; onOpen: () => void; co
         )}
       </button>
       <span className="shrink-0 text-xs text-muted-foreground">{relTime(i.inserted_at)}</span>
-      {i.archived_at ? (
-        <button
-          onClick={() => feed.unarchive(i.id)}
-          className="shrink-0 rounded border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
-        >
-          Undo
-        </button>
+      <ReadToggle i={i} />
+    </div>
+  );
+}
+
+function GroupHeader({ g, by, compact }: { g: Group; by: GroupBy; compact?: boolean }) {
+  const feed = useFakeFeed();
+  const unread = g.items.filter((i) => !i.read_at);
+  const first = g.items[0];
+  return (
+    <div className={cn("flex items-center gap-2 px-4", compact ? "bg-muted/50 py-1.5" : "py-2.5")}>
+      {by === "person" ? (
+        <UserAvatar name={first.actors[0].name} avatarUrl={first.actors[0].avatar} className="size-6" />
       ) : (
+        <div className="flex size-6 items-center justify-center rounded bg-muted text-muted-foreground">
+          <BookOpen className="size-3.5" />
+        </div>
+      )}
+      <span className="truncate text-sm font-semibold">
+        {by === "person" ? first.actors[0].name : String(first.data.course)}
+      </span>
+      {by === "person" && <InstructorBadge i={first} />}
+      <span className="text-xs text-muted-foreground">
+        {unread.length > 0 ? `${unread.length} unread` : `${g.items.length}`}
+      </span>
+      <span className="flex-1" />
+      {unread.length > 1 && (
         <button
-          onClick={() => feed.archive(i.id)}
-          title="Done"
-          className="flex shrink-0 items-center gap-1 rounded border px-2 py-0.5 text-xs text-muted-foreground opacity-60 hover:text-foreground group-hover:opacity-100"
+          onClick={() => unread.forEach((i) => feed.markAsRead(i.id))}
+          className="text-xs font-medium text-primary hover:underline"
         >
-          <Check className="size-3" /> Done
+          Mark all read
         </button>
       )}
     </div>
   );
 }
 
-function categoriesIn(items: KnockFeedItem[]): Category[] {
-  return (["learning", "teaching", "purchases"] as const).filter((c) =>
-    items.some((i) => i.source.categories.includes(c))
+function GroupToggle() {
+  const feed = useFakeFeed();
+  return (
+    <div className="flex rounded-md border p-0.5 text-xs">
+      {(["person", "course"] as const).map((b) => (
+        <button
+          key={b}
+          onClick={() => feed.setGroupBy(b)}
+          className={cn("rounded px-2.5 py-1", feed.groupBy === b ? "bg-muted font-medium" : "text-muted-foreground")}
+        >
+          By {b}
+        </button>
+      ))}
+    </div>
   );
 }
 
 function PanelC({ close }: { close: () => void }) {
   const feed = useFakeFeed();
   const open = useOpenItem(close);
-  const cats = categoriesIn(feed.items);
-  const [tab, setTab] = useState<Category | "all">("all");
-  const list = feed.items
-    .filter((i) => tab === "all" || i.source.categories.includes(tab))
-    .slice(0, 5);
+  const groups = groupItems(feed.items.slice(0, 5), feed.groupBy);
   return (
     <>
       <PanelHeader>
-        <span className="text-xs text-muted-foreground">{feed.items.length} to do</span>
+        <GroupToggle />
       </PanelHeader>
-      {cats.length > 1 && (
-        <div className="flex gap-1 border-b px-3 py-1.5">
-          {(["all", ...cats] as const).map((c) => {
-            const n = feed.items.filter(
-              (i) => !i.read_at && (c === "all" || i.source.categories.includes(c))
-            ).length;
-            return (
-              <button
-                key={c}
-                onClick={() => setTab(c)}
-                className={cn(
-                  "rounded-full px-2.5 py-1 text-xs",
-                  tab === c ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-                )}
-              >
-                {c === "all" ? "All" : CATEGORY_LABEL[c]}
-                {n > 0 && ` ${n}`}
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {list.length === 0 ? (
+      {groups.length === 0 ? (
         <CaughtUp />
       ) : (
-        list.map((i) => <RowC key={i.id} i={i} compact onOpen={() => open(i)} />)
+        groups.map((g) => (
+          <div key={g.key} className="border-b last:border-b-0">
+            <GroupHeader g={g} by={feed.groupBy} compact />
+            {g.items.map((i) => (
+              <RowC key={i.id} i={i} compact onOpen={() => open(i)} />
+            ))}
+          </div>
+        ))
       )}
-      <SeeAll close={close} />
+      <div className="flex items-center border-t">
+        <button
+          onClick={feed.markAllAsRead}
+          disabled={feed.meta.unread_count === 0}
+          className="flex-1 border-r px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted disabled:opacity-40"
+        >
+          Mark all as read
+        </button>
+        <div className="flex-1">
+          <SeeAll close={close} />
+        </div>
+      </div>
     </>
   );
 }
@@ -670,49 +729,46 @@ function PanelC({ close }: { close: () => void }) {
 function PageC() {
   const feed = useFakeFeed();
   const open = useOpenItem();
-  const [showDone, setShowDone] = useState(false);
-  const source = showDone ? feed.archived : feed.items;
-  const cats = categoriesIn(source);
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const list = unreadOnly ? feed.items.filter((i) => !i.read_at) : feed.items;
+  const groups = groupItems(list, feed.groupBy);
 
   return (
     <div className="mx-auto max-w-3xl p-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Inbox</h1>
-        <div className="flex rounded-md border p-0.5 text-sm">
-          <button
-            onClick={() => setShowDone(false)}
-            className={cn("rounded px-3 py-1", !showDone && "bg-muted font-medium")}
-          >
-            To do ({feed.items.length})
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <h1 className="mr-auto text-2xl font-bold">Inbox</h1>
+        <GroupToggle />
+        <div className="flex rounded-md border p-0.5 text-xs">
+          <button onClick={() => setUnreadOnly(false)} className={cn("rounded px-2.5 py-1", !unreadOnly ? "bg-muted font-medium" : "text-muted-foreground")}>
+            All ({feed.items.length})
           </button>
-          <button
-            onClick={() => setShowDone(true)}
-            className={cn("rounded px-3 py-1", showDone && "bg-muted font-medium")}
-          >
-            Done ({feed.archived.length})
+          <button onClick={() => setUnreadOnly(true)} className={cn("rounded px-2.5 py-1", unreadOnly ? "bg-muted font-medium" : "text-muted-foreground")}>
+            Unread ({feed.meta.unread_count})
           </button>
         </div>
+        <button
+          onClick={feed.markAllAsRead}
+          disabled={feed.meta.unread_count === 0}
+          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-40"
+        >
+          <CheckCheck className="size-3.5" /> Mark all as read
+        </button>
       </div>
-      {source.length === 0 && (
-        <div className="rounded-lg border border-dashed py-16 text-center">
-          <div className="text-3xl">🎉</div>
-          <div className="mt-2 font-medium">
-            {showDone ? "Nothing marked done yet" : "Inbox zero. You're all caught up."}
-          </div>
+      {groups.length === 0 && (
+        <div className="rounded-lg border border-dashed py-16 text-center font-medium">
+          You're all caught up
         </div>
       )}
-      <div className="space-y-6">
-        {cats.map((c) => (
-          <section key={c}>
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {CATEGORY_LABEL[c]}
-            </h2>
-            <div className="divide-y rounded-lg border">
-              {source
-                .filter((i) => i.source.categories.includes(c))
-                .map((i) => (
-                  <RowC key={i.id} i={i} onOpen={() => open(i)} />
-                ))}
+      <div className="space-y-4">
+        {groups.map((g) => (
+          <section key={g.key} className="overflow-hidden rounded-lg border">
+            <div className="border-b bg-muted/30">
+              <GroupHeader g={g} by={feed.groupBy} />
+            </div>
+            <div className="divide-y">
+              {g.items.map((i) => (
+                <RowC key={i.id} i={i} onOpen={() => open(i)} />
+              ))}
             </div>
           </section>
         ))}

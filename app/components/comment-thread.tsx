@@ -31,7 +31,14 @@ export type RenderedComment = {
 
 function AuthorBadge({ label }: { label: string }) {
   return (
-    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+    <span
+      className={cn(
+        "rounded-full px-2 py-0.5 text-xs font-medium",
+        label === "Instructor"
+          ? "bg-instructor/15 text-instructor"
+          : "bg-primary/10 text-primary"
+      )}
+    >
       {label}
     </span>
   );

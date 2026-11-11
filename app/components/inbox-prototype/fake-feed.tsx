@@ -140,15 +140,39 @@ function seedFeed(): KnockFeedItem[] {
     ),
     item(
       "lesson-question",
-      "**Emma Wilson** and **2 others** asked questions on *Introduction to TypeScript*",
+      "**Emma Wilson** asked a question on *Utility Types*",
       `/instructor/questions`,
-      [people.emma, people.james, people.olivia],
+      [people.emma],
       {
         course: "Introduction to TypeScript",
         lesson: "Utility Types",
         excerpt: "Why does Partial<T> not go deep into nested objects?",
       },
-      { ago: 22, activities: 3 }
+      { ago: 22 }
+    ),
+    item(
+      "lesson-question",
+      "**James Park** asked a question on *Generic Constraints*",
+      `/instructor/questions`,
+      [people.james],
+      {
+        course: "Introduction to TypeScript",
+        lesson: "Generic Constraints",
+        excerpt: "Can a constraint reference another type parameter?",
+      },
+      { ago: 48 }
+    ),
+    item(
+      "lesson-question",
+      "**Olivia Martinez** asked a question on *Utility Types*",
+      `/instructor/questions`,
+      [people.olivia],
+      {
+        course: "Introduction to TypeScript",
+        lesson: "Utility Types",
+        excerpt: "When would I reach for Pick over Omit?",
+      },
+      { ago: 70 }
     ),
     item(
       "seat-claimed",
@@ -273,6 +297,7 @@ const incoming: (() => KnockFeedItem)[] = [
 // ---- In-memory store (stands in for Knock's feed store) -----------------
 
 export type BadgeCounts = "unseen" | "unread";
+export type GroupBy = "person" | "course";
 
 interface FeedContextValue {
   items: KnockFeedItem[]; // not archived, newest first
@@ -294,6 +319,8 @@ interface FeedContextValue {
   // Where the person is looking: suppresses toasts (decision ticket #4)
   setListVisible: (who: string, visible: boolean) => void;
   lastEvent: string;
+  groupBy: GroupBy;
+  setGroupBy: (g: GroupBy) => void;
 }
 
 const FeedContext = createContext<FeedContextValue | null>(null);
@@ -344,6 +371,7 @@ export function FakeFeedProvider({ children }: { children: React.ReactNode }) {
   const [toastsOn, setToastsOn] = useState(true);
   const [tabCountOn, setTabCountOn] = useState(true);
   const [lastEvent, setLastEvent] = useState("—");
+  const [groupBy, setGroupBy] = useState<GroupBy>("person");
   const visible = useRef(new Set<string>());
   const navigate = useNavigate();
   const fireIdx = useRef(0);
@@ -428,6 +456,8 @@ export function FakeFeedProvider({ children }: { children: React.ReactNode }) {
       else visible.current.delete(who);
     },
     lastEvent,
+    groupBy,
+    setGroupBy,
   };
 
   // Tab title: "(3) Lesson — Cadence". Route meta rewrites the title on
