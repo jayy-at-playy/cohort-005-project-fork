@@ -92,3 +92,31 @@ A Refund where the money couldn't be sent. The Refund Request stays approved, be
 **Watch Limit**:
 The amount of Watched time on a course past which a Student can no longer get a Refund, because they've had the course.
 _Avoid_: Watch cap, Viewing threshold
+
+### Lesson Questions
+
+**Lesson Question**:
+A note a person leaves on a lesson, which everyone taking the course can read. It counts as a Lesson Question whether it asks something, shares a tip or says anything else; Cadence doesn't tell them apart.
+_Avoid_: Question (on its own), Comment, Post
+
+**Lesson Reply**:
+A note answering a Lesson Question, which everyone taking the course can read. Replies go one level deep: nobody can reply to a Lesson Reply.
+_Avoid_: Reply (on its own), Comment, Response
+
+### Notifications
+
+**Notification**:
+A note from Cadence to one person that something concerning them has happened.
+_Avoid_: Alert, Message
+
+**Inbox**:
+Where a person's Notifications collect. Each person has exactly one, whatever roles they hold.
+_Avoid_: Notification centre, Feed
+
+**Notification Trigger**:
+Something that happens in Cadence and causes a Notification, such as a Lesson Reply to your Lesson Question or a Seat being claimed.
+_Avoid_: Event, Notification Type, Workflow
+
+**Announcement**:
+How a new Notification makes itself noticed while a person has Cadence open, alongside arriving in their Inbox. Switching Announcements off changes how a person is told, not whether they're told.
+_Avoid_: Cue, Alert, Notification Type
