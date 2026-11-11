@@ -2,7 +2,32 @@
 
 Research for issue #2 (parent map: #1 "In-app notifications"). Sources were read on **2026-11-11**. Pricing and limits change often, so check them again before committing to a plan. Anything marked **(unverified)** could not be confirmed from a first-party source during this pass.
 
-## Recommendation
+## Revision (2026-11-11): Knock replaces Novu
+
+The first pass weighed two things the human has since ruled out. **Self-hosting is off the table**: the human will not host or operate anything, so only a managed (cloud) service counts and the hard constraint is simply a sufficient free tier. **EU data residency is not a requirement.** Those were Novu's two deciding advantages. Re-weighed on what remains, **Knock (cloud, Free/Developer plan)** wins.
+
+Knock Free, re-checked on 2026-11-11 against https://knock.app/pricing and https://docs.knock.app/manage-your-account/knock-plans:
+
+- Messaging workflows: **Unlimited** (resolves the earlier "(unverified)"). Novu Free caps at 5.
+- Feed retention: **Unlimited** (configurable). Novu Free keeps 30 days.
+- Environments and team members: **Unlimited**. Novu Free has 2 environments and 3 team members.
+- 10,000 messages/month. Each in-app feed item delivered to one user counts as one message. Knock says it doesn't hard cap.
+- Prebuilt feed components, bring-your-own (headless) components, batching/digest and preferences are all on Free.
+- Not on Free: removing Knock branding, per-tenant preferences/branding, and translations.
+
+Knock also keeps its first-pass strengths: the most polished headless React layer (`@knocklabs/react-core`) and feed auth with expiring RS256 JWTs.
+
+Carry these costs into the PRD instead of Novu's:
+
+1. **The Knock branding** stays in the feed unless we pay for Starter ($250/mo).
+2. **In-app messages don't support sandbox mode.** Notifications sent in development count toward the 10k and need a separate development environment, which is free.
+3. **The paid step is steep** ($250/mo against Novu's $30). Course scale should stay well inside 10k/month.
+
+The build-vs-adopt recommendation is unchanged: build an app-owned Inbox on the headless hooks (`@knocklabs/react-core`), with the prebuilt `@knocklabs/react` feed as the fallback. The prototype ticket confirms or overturns it.
+
+The original analysis below is kept unchanged for reference.
+
+## Recommendation (first pass, superseded)
 
 **Novu (cloud, Free plan, EU region)**, with the Inbox built as a **custom shadcn UI on `@novu/react` hooks**. Novu's prebuilt `<Inbox />` is the fallback, not the target.
 
