@@ -18,6 +18,8 @@ import {
   fakeNotifications,
   type FakeNotifications,
 } from "./notifications.fake.server";
+import { listBookmarksForStudent, toggleBookmark } from "./bookmarks.server";
+import { listNotesForStudent, saveNote } from "./notes.server";
 
 type TestDb = ReturnType<typeof createTestDb>;
 
@@ -298,6 +300,23 @@ describe("approving a Refund Request", () => {
       amountRefunded: 7900,
       resolvedByUserId: platformAdmin.id,
     });
+  });
+
+  it("keeps the buyer's Bookmarks and Notes", async () => {
+    const purchase = buyForSelf(base.user.id);
+    toggleBookmark(db, base.user.id, lessonIds[0], NOW);
+    saveNote(db, base.user.id, lessonIds[1], "Come back to this.", NOW);
+    const id = await raise(purchase.id, base.user.id);
+
+    await approveRefundRequest(db, id, platformAdmin.id, null, NOW, notifications);
+
+    expect(isEnrolled(base.user.id)).toBe(false);
+    expect(listBookmarksForStudent(db, base.user.id)).toMatchObject([
+      { lessonId: lessonIds[0] },
+    ]);
+    expect(listNotesForStudent(db, base.user.id)).toMatchObject([
+      { lessonId: lessonIds[1], body: "Come back to this." },
+    ]);
   });
 
   it("keeps the buyer's Enrollment if they also hold a Claimed Seat for the course", async () => {

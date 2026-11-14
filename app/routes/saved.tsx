@@ -1,55 +1,12 @@
 import { Link } from "react-router";
-import { desc, eq } from "drizzle-orm";
 import type { Route } from "./+types/saved";
 import { db } from "~/db";
-import { bookmarks, courses, lessons, modules, notes } from "~/db/schema";
 import { requireUserId } from "~/lib/access.server";
+import { listBookmarksForStudent } from "~/lib/bookmarks.server";
+import { listNotesForStudent } from "~/lib/notes.server";
 import { Card, CardContent } from "~/components/ui/card";
 import { Bookmark, NotebookPen } from "lucide-react";
 import { formatRelativeTime } from "~/lib/utils";
-
-// Where a Bookmark or Note points: its Lesson, plus the Module and Course
-// needed to label and link it.
-const lessonLocation = {
-  lessonId: lessons.id,
-  lessonTitle: lessons.title,
-  moduleTitle: modules.title,
-  courseTitle: courses.title,
-  courseSlug: courses.slug,
-};
-
-function getBookmarksForUser(userId: number) {
-  return db
-    .select({
-      id: bookmarks.id,
-      createdAt: bookmarks.createdAt,
-      ...lessonLocation,
-    })
-    .from(bookmarks)
-    .innerJoin(lessons, eq(bookmarks.lessonId, lessons.id))
-    .innerJoin(modules, eq(lessons.moduleId, modules.id))
-    .innerJoin(courses, eq(modules.courseId, courses.id))
-    .where(eq(bookmarks.userId, userId))
-    .orderBy(desc(bookmarks.createdAt))
-    .all();
-}
-
-function getNotesForUser(userId: number) {
-  return db
-    .select({
-      id: notes.id,
-      body: notes.body,
-      updatedAt: notes.updatedAt,
-      ...lessonLocation,
-    })
-    .from(notes)
-    .innerJoin(lessons, eq(notes.lessonId, lessons.id))
-    .innerJoin(modules, eq(lessons.moduleId, modules.id))
-    .innerJoin(courses, eq(modules.courseId, courses.id))
-    .where(eq(notes.userId, userId))
-    .orderBy(desc(notes.updatedAt))
-    .all();
-}
 
 export function meta() {
   return [
@@ -61,14 +18,14 @@ export function meta() {
 export async function loader({ request }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
 
-  const savedBookmarks = getBookmarksForUser(userId);
-  const savedNotes = getNotesForUser(userId);
-
-  return { savedBookmarks, savedNotes };
+  return {
+    bookmarks: listBookmarksForStudent(db, userId),
+    notes: listNotesForStudent(db, userId),
+  };
 }
 
 export default function Saved({ loaderData }: Route.ComponentProps) {
-  const { savedBookmarks, savedNotes } = loaderData;
+  const { bookmarks, notes } = loaderData;
 
   return (
     <div className="p-6">
@@ -86,7 +43,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
             Bookmarks
           </h2>
 
-          {savedBookmarks.length === 0 ? (
+          {bookmarks.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-sm text-muted-foreground">
                 No bookmarks yet.
@@ -94,7 +51,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
             </Card>
           ) : (
             <div className="space-y-2">
-              {savedBookmarks.map((bookmark) => (
+              {bookmarks.map((bookmark) => (
                 <Card key={bookmark.id}>
                   <CardContent className="py-3">
                     <Link
@@ -104,7 +61,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
                       {bookmark.lessonTitle}
                     </Link>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {bookmark.courseTitle} · {bookmark.moduleTitle}
+                      {bookmark.courseTitle}
                     </p>
                   </CardContent>
                 </Card>
@@ -119,7 +76,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
             Notes
           </h2>
 
-          {savedNotes.length === 0 ? (
+          {notes.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-sm text-muted-foreground">
                 No notes yet.
@@ -127,7 +84,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
             </Card>
           ) : (
             <div className="space-y-2">
-              {savedNotes.map((note) => (
+              {notes.map((note) => (
                 <Card key={note.id}>
                   <CardContent className="space-y-1 py-3">
                     <Link
