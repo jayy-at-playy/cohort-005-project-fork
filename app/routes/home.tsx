@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import type { Route } from "./+types/home";
 import { Button } from "~/components/ui/button";
 import {
@@ -242,10 +242,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           {TITLE_LINES.map((line) => (
             <span key={line.position} className="block">
               {line.words.map(({ position, word, className }, index) => (
-                <span key={position} className={className}>
-                  {index > 0 ? " " : ""}
-                  {word}
-                </span>
+                <Fragment key={position}>
+                  {index > 0 && " "}
+                  <span className={className}>{word}</span>
+                </Fragment>
               ))}
             </span>
           ))}
