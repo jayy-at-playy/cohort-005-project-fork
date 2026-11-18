@@ -12,12 +12,13 @@ const RAINBOW_CLASSES = [
 ] as const;
 
 export function colourLines(lines: readonly string[]): RainbowLine[] {
-  let position = 0;
+  let wordPosition = 0;
   return lines.map((line, linePosition) => ({
     position: linePosition,
     words: (line.match(/\S+/g) ?? []).map((word) => {
+      const position = wordPosition++;
       const className = RAINBOW_CLASSES[position % RAINBOW_CLASSES.length];
-      return { position: position++, word, className };
+      return { position, word, className };
     }),
   }));
 }
