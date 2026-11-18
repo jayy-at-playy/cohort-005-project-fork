@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import type { Route } from "./+types/home";
 import { Button } from "~/components/ui/button";
 import {
@@ -25,6 +25,9 @@ import { getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
 import { eq, like, and, or, sql } from "drizzle-orm";
 import { db } from "~/db";
 import { courses, categories, users, modules, lessons } from "~/db/schema";
+import { rainbowLines } from "~/modules/rainbow";
+
+const TITLE_LINES = rainbowLines(["Learn to code,", "at your own pace"]);
 
 function getAllUsers() {
   return db.select().from(users).all();
@@ -236,9 +239,16 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       <section className="mx-auto max-w-6xl px-6 py-24 text-center">
         <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">
-          Learn to code,
-          <br />
-          <span className="text-muted-foreground">at your own pace</span>
+          {TITLE_LINES.map((line) => (
+            <span key={line.position} className="block">
+              {line.words.map(({ position, word, className }, index) => (
+                <Fragment key={position}>
+                  {index > 0 && " "}
+                  <span className={className}>{word}</span>
+                </Fragment>
+              ))}
+            </span>
+          ))}
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
           Structured courses built by experienced instructors. Track your
